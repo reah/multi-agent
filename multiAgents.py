@@ -15,7 +15,7 @@
 
 from util import manhattanDistance
 from game import Directions
-import random, util
+import random, util, sys
 
 from game import Agent
 
@@ -75,7 +75,64 @@ class ReflexAgent(Agent):
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
 
         "*** YOUR CODE HERE ***"
-        return successorGameState.getScore()
+        # oldScore is the original bad heuristic
+        oldScore = successorGameState.getScore()
+        newScore = 0
+
+        # constant number of average foodpellots over        
+        if successorGameState.isWin():
+            return sys.maxint
+        if successorGameState.isLose():
+            return -sys.maxint
+
+        #Food newScore (calculate neighboring foods)
+        foodList = newFood.asList()
+        neighboringFoods = []
+        foodDists = []
+        emptySpace = 0
+        wall = 0
+        walls = successorGameState.getWalls().asList()
+        for food in foodList:
+            neighboringFoods.append((food[0]-1, food[1]))
+            neighboringFoods.append((food[0]+1, food[1]))
+            neighboringFoods.append((food[0], food[1]-1))
+            neighboringFoods.append((food[0], food[1]+1))
+            #neighboringFoods.append((food[0]-1, food[1]+1))
+            #neighboringFoods.append((food[0]-1, food[1]-1))
+            #neighboringFoods.append((food[0]+1, food[1]-1))
+            #neighboringFoods.append((food[0]+1, food[1]+1))
+        
+        for food in neighboringFoods:
+            if food not in walls and food in foodList:
+                foodDists.append(util.manhattanDistance(newPos, food))
+            if food not in walls and food not in foodList:
+                emptySpace += 1
+        
+        newScore += oldScore - emptySpace * 4
+                
+        # ghost distances
+        ghostDists = []
+        for ghost in newGhostStates:
+            ghostDists.append(util.manhattanDistance(ghost.getPosition(), newPos))
+        if len(ghostDists) <= 0 and len(foodDists) > 0:
+            newScore += 10 + min(ghostDists)*(1/min(foodDists))**4
+        if len(foodDists) > 0 and len(ghostDists) > 0:
+            newScore += min(ghostDists)*(1/min(foodDists))**4
+            
+        # capsule aka scare ghosts
+        capDists = []
+        capsules = successorGameState.getCapsules()
+        if len(capsules) > 0:
+            if newPos in capsules:
+                newScore += 10
+            for cap in capsules:
+                capDists.append(util.manhattanDistance(cap, newPos))
+            newScore += 1/min(capDists)
+        
+        for scareTime in newScaredTimes:
+          newScore += scareTime
+            
+        return newScore
 
 def scoreEvaluationFunction(currentGameState):
     """
